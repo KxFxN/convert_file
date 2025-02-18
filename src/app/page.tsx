@@ -60,10 +60,12 @@ export default function ExcelToXMLConverter() {
     try {
       const xml = await convertExcelToXML(file, selected);
       setXmlData(xml);
-    } catch (err: any) {
-      setError(
-        err.message || "An error occurred during conversion. Please try again."
-      );
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred during conversion. Please try again.");
+      }
     } finally {
       setIsConverting(false);
     }

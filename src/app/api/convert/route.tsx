@@ -256,7 +256,7 @@ function convertToXML(data: DataType[], selected: string) {
 
   // 4️⃣ ดำเนินการเพิ่มข้อมูลจาก CSV ปกติ
   data.forEach((row) => {
-    let unitId = String(row["44"] || "").trim();
+    const unitId = String(row["44"] || "").trim();
     const itemName = String(row["35"] || "").trim();
 
     if (!unitId) return; // ข้ามแถวที่ไม่มี unitId
