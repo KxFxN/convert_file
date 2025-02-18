@@ -10,6 +10,9 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const selected = formData.get("selected") as string;
+
+    console.log(selected);
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
     });
 
     const jsonData = parsedData.data;
-    const xmlData = convertToXML(jsonData);
+    const xmlData = convertToXML(jsonData, selected);
 
     return NextResponse.json({ xmlData });
   } catch (error) {
@@ -63,13 +66,38 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function convertToXML(data: DataType[]) {
+const decimalPlacesMap: { [key: string]: number } = {
+  Purity: 3,
+  "Other Fluorocarbons": 0,
+  "Acid content(as HF)": 1,
+  H2O: 1,
+  CO: 1,
+  CO2: 1,
+  "THC (AS CH4)": 1,
+  NITROGEN: 1,
+  OXYGEN: 1,
+  CF4: 1,
+};
+
+// 2️⃣ ฟังก์ชันจัดรูปแบบตัวเลขตาม itemName
+function formatDecimal(value: string, itemName: string): string {
+  const num = parseFloat(value);
+
+  if (isNaN(num)) return value; // ถ้าไม่ใช่ตัวเลข ให้คืนค่าเดิม
+
+  // ตรวจสอบว่ามีค่าใน Mapping หรือไม่
+  const decimalPlaces = decimalPlacesMap[itemName] ?? 1; // ค่า Default เป็น 2 ตำแหน่ง
+  return num.toFixed(decimalPlaces);
+}
+
+function convertToXML(data: DataType[], selected: string) {
   const desiredOrder = [
     "Purity",
     "Other Fluorocarbons",
     "CClF3",
     "Acid content(as HF)",
     "H2O",
+    "CF4",
     "CO",
     "CO2",
     "THC(CH4)",
@@ -84,6 +112,7 @@ function convertToXML(data: DataType[]) {
     CClF3: "CClF3",
     "Acid content(as HF)": "ACIDITY (AS HF)",
     H2O: "H2O",
+    CF4: "CF4",
     CO: "CO",
     CO2: "CO2",
     "THC(CH4)": "THC (AS CH4)",
@@ -114,11 +143,15 @@ function convertToXML(data: DataType[]) {
   };
 
   const fields: Field[] = [
-    { key: "44", name: "UnitId" },
+    // { key: "44", name: "UnitId" },
     {
       key: "6",
       name: "Supplier",
-      transform: (value: string) => value.split(" ")[0],
+      transform: (value: string) =>
+        value
+          .split(" ")[0]
+          .toLowerCase()
+          .replace(/^\w/, (c) => c.toUpperCase()),
     },
     { key: "23", name: "Number" },
     { key: "28", name: "Productiondate", transform: reformatDate },
@@ -139,22 +172,50 @@ function convertToXML(data: DataType[]) {
   );
 
   const inspectionItemsMap = new Map<
-    string,
+    string, // Unit ID as the key
+    Map<
+      string, // Nested Map with itemName as the key
+      {
+        Unit: string;
+        Specification: string;
+        DetectionLimit: string;
+        InspectionValue: string;
+      }
+    >
+  >();
+
+  // 1️⃣ เก็บ unitId ทั้งหมดที่เจอในไฟล์ CSV
+  const allUnitIds = new Set<string>();
+
+  // 2️⃣ เก็บค่าของ "Purity", "Other Fluorocarbons", "Acid content(as HF)", "H2O" ถ้ามีค่า
+  const mandatoryItems = [
+    "Purity",
+    "Other Fluorocarbons",
+    "Acid content(as HF)",
+    "H2O",
+  ];
+  const globalValues = new Map<
+    string, // Item Name เช่น "Purity"
     {
       Unit: string;
       Specification: string;
       DetectionLimit: string;
       InspectionValue: string;
-    }
+    } // ค่า
   >();
 
   data.forEach((row) => {
-    const itemName = row["35"] as string;
+    const unitId = String(row["44"] || "").trim();
+    const itemName = String(row["35"] || "").trim();
 
-    if (desiredOrder.includes(itemName)) {
+    if (unitId) {
+      allUnitIds.add(unitId);
+    }
+
+    if (mandatoryItems.includes(itemName)) {
       const specSymbol = String(row["41"] || "");
-      const specValue = String(row["39"] || row["38"]);
-      const spec = specSymbol + specValue;
+      const specValue = String(row["39"] || row["38"] || "");
+      const spec = specSymbol + formatDecimal(specValue, itemName); // ใช้ฟังก์ชัน formatDecimal
 
       const rawDetectionLimit = String(row["42"] || "").trim();
       const detectionLimit = rawDetectionLimit.replace(/<=|>=|>|</g, "");
@@ -166,7 +227,62 @@ function convertToXML(data: DataType[]) {
       if (unit.includes("volppm")) unit = unit.replace("volppm", "ppmv");
       if (unit.includes("massppm")) unit = unit.replace("massppm", "ppmw");
 
-      inspectionItemsMap.set(itemName, {
+      // ถ้ามีค่าจริงของ InspectionValue ให้เก็บไว้
+      if (ins) {
+        globalValues.set(itemName, {
+          Unit: unit,
+          Specification: spec,
+          DetectionLimit: detectionLimit,
+          InspectionValue: ins,
+        });
+      }
+    }
+  });
+
+  // 3️⃣ เติม "Purity", "Other Fluorocarbons", "Acid content(as HF)", "H2O" ให้ทุก unitId ก่อน
+  allUnitIds.forEach((unitId) => {
+    if (!inspectionItemsMap.has(unitId)) {
+      inspectionItemsMap.set(unitId, new Map());
+    }
+
+    const itemMap = inspectionItemsMap.get(unitId)!;
+
+    mandatoryItems.forEach((itemName) => {
+      if (!itemMap.has(itemName) && globalValues.has(itemName)) {
+        itemMap.set(itemName, globalValues.get(itemName)!);
+      }
+    });
+  });
+
+  // 4️⃣ ดำเนินการเพิ่มข้อมูลจาก CSV ปกติ
+  data.forEach((row) => {
+    let unitId = String(row["44"] || "").trim();
+    const itemName = String(row["35"] || "").trim();
+
+    if (!unitId) return; // ข้ามแถวที่ไม่มี unitId
+
+    if (!inspectionItemsMap.has(unitId)) {
+      inspectionItemsMap.set(unitId, new Map());
+    }
+
+    const itemMap = inspectionItemsMap.get(unitId)!;
+
+    if (desiredOrder.includes(itemName)) {
+      const specSymbol = String(row["41"] || "");
+      const specValue = String(row["39"] || row["38"] || "");
+      const spec = specSymbol + formatDecimal(specValue, itemName); // ใช้ฟังก์ชัน formatDecimal
+
+      const rawDetectionLimit = String(row["42"] || "").trim();
+      const detectionLimit = rawDetectionLimit.replace(/<=|>=|>|</g, "");
+
+      const ins = String(row["40"] || "");
+
+      let unit = String(row["37"] || "");
+      if (unit.includes("vol%")) unit = unit.replace("vol", "");
+      if (unit.includes("volppm")) unit = unit.replace("volppm", "ppmv");
+      if (unit.includes("massppm")) unit = unit.replace("massppm", "ppmw");
+
+      itemMap.set(itemName, {
         Unit: unit,
         Specification: spec,
         DetectionLimit: detectionLimit,
@@ -184,7 +300,7 @@ function convertToXML(data: DataType[]) {
   // แปลง Map เป็น XML
   const builder = new Builder();
   const xmlObj = {
-    Root: {
+    Micron_COA: {
       Header: {
         BasicInfoField: [
           { $: { FieldName: "Purno", FieldValue: "" } },
@@ -199,18 +315,50 @@ function convertToXML(data: DataType[]) {
             },
           },
           { $: { FieldName: "Materialtype", FieldValue: "Gas" } },
-          { $: { FieldName: "MaterialName", FieldValue: "CF4 30*15" } },
-          { $: { FieldName: "SupplierPartNo", FieldValue: "14EH" } },
-          { $: { FieldName: "MaterialNumber", FieldValue: "130-02041" } },
+          {
+            $: {
+              FieldName: "MaterialName",
+              FieldValue:
+                selected === "14HE"
+                  ? "CF4 30*15"
+                  : selected === "32HE" && "CH2F2 47L",
+            },
+          },
+          {
+            $: {
+              FieldName: "SupplierPartNo",
+              FieldValue:
+                selected === "14HE"
+                  ? selected
+                  : selected === "32HE" && "HFC32EH",
+            },
+          },
+          {
+            $: {
+              FieldName: "MaterialNumber",
+              FieldValue:
+                selected === "14HE"
+                  ? "130-02004"
+                  : selected === "32HE" && "130-05393",
+            },
+          },
           { $: { FieldName: "Supplier", FieldValue: result.Supplier } },
           { $: { FieldName: "Agency", FieldValue: "1017096" } },
           { $: { FieldName: "DataSource", FieldValue: result.Supplier } },
           { $: { FieldName: "Company_UID", FieldValue: "" } },
-          { $: { FieldName: "BatchNumber", FieldValue: Number } },
-          { $: { FieldName: "LotNumber", FieldValue: Number } },
+          { $: { FieldName: "BatchNumber", FieldValue: result.Number } },
+          { $: { FieldName: "LotNumber", FieldValue: result.Number } },
           { $: { FieldName: "FAB", FieldValue: "F10N" } },
           { $: { FieldName: "LotQuantity", FieldValue: "1" } },
-          { $: { FieldName: "QuantityUn", FieldValue: "Bundled" } },
+          {
+            $: {
+              FieldName: "QuantityUn",
+              FieldValue:
+                selected === "14HE"
+                  ? "Bundled"
+                  : selected === "32HE" && "Cylinder",
+            },
+          },
           { $: { FieldName: "ManufacturingSite", FieldValue: "Osaka JP" } },
           {
             $: {
@@ -234,37 +382,37 @@ function convertToXML(data: DataType[]) {
         ],
       },
       Content: {
-        UnitId: {
-          $: { Value: result.UnitId },
-          InspectionItem: Array.from(sortedMap.entries()).map(
-            ([key, value]) => ({
+        UnitId: Array.from(sortedMap.entries()).map(([key, value]) => ({
+          $: { Value: key }, // ใส่ Value สำหรับ UnitId
+          InspectionItems: Array.from(value.entries()).map(
+            ([itemName, details]) => ({
               $: {
-                ItemName: nameMapping[key as keyof typeof nameMapping],
+                ItemName: nameMapping[itemName as keyof typeof nameMapping],
               },
               ResultItem: [
-                { $: { ResultName: "Unit", Value: value.Unit } },
+                { $: { ResultName: "Unit", Value: details.Unit } },
                 {
                   $: {
                     ResultName: "Specification",
-                    Value: value.Specification,
+                    Value: details.Specification,
                   },
                 },
                 {
                   $: {
                     ResultName: "DetectionLimit",
-                    Value: value.DetectionLimit,
+                    Value: details.DetectionLimit,
                   },
                 },
                 {
                   $: {
                     ResultName: "InspectionValue",
-                    Value: value.InspectionValue,
+                    Value: details.InspectionValue,
                   },
                 },
               ],
             })
           ),
-        },
+        })),
       },
     },
   };

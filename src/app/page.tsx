@@ -1,11 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { AlertCircle, FileSpreadsheet, FileOutput } from "lucide-react";
+import {
+  AlertCircle,
+  FileSpreadsheet,
+  FileOutput,
+  ChevronDown,
+} from "lucide-react";
 
-async function convertExcelToXML(file: File): Promise<string> {
+async function convertExcelToXML(
+  file: File,
+  selected: string
+): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("selected", selected);
 
   const response = await fetch("/api/convert", {
     method: "POST",
@@ -27,6 +36,10 @@ export default function ExcelToXMLConverter() {
   const [xmlData, setXmlData] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [selected, setSelected] = useState("14HE");
+  const options = ["14HE", "32HE"];
+  const [isOpen, setIsOpen] = useState(false);
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       setFile(event.target.files[0]);
@@ -45,7 +58,7 @@ export default function ExcelToXMLConverter() {
     setError(null);
 
     try {
-      const xml = await convertExcelToXML(file);
+      const xml = await convertExcelToXML(file, selected);
       setXmlData(xml);
     } catch (err: any) {
       setError(
@@ -68,6 +81,35 @@ export default function ExcelToXMLConverter() {
           </p>
         </div>
         <div className="p-6 space-y-4">
+          <div className="space-y-2">
+            <span className="text-gray-700">Supplier mat Code</span>
+            <div className="relative w-full text-gray-700">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex w-full p-2 text-left bg-white border border-gray-300 rounded-md justify-between"
+              >
+                {selected}
+                <ChevronDown className="text-gray-400" />
+              </button>
+              {isOpen && (
+                <ul className="absolute w-full mt-1 bg-white border border-gray-300 rounded-md">
+                  {options.map((option) => (
+                    <li
+                      key={option}
+                      className="p-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        setSelected(option);
+                        setIsOpen(false);
+                      }}
+                    >
+                      {option}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <div className="flex items-center space-x-2 bg-gray-50 p-3 rounded-md">
             <FileSpreadsheet className="text-green-500" size={24} />
             <label htmlFor="excel-file" className="flex-1">
