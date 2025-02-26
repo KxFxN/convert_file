@@ -14,6 +14,8 @@ jobs:
       # ขั้นแรก: Checkout โค้ดจาก GitHub repository
       - name: Checkout GitHub Repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       # ขั้นตอนที่สอง: ตั้งค่า git และ push โค้ดไปยัง GitLab repository
       - name: Push to GitLab
