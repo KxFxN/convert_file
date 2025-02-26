@@ -19,7 +19,7 @@ services:
     #
     # ตัวอย่างที่มี renew-hook (เช่น restart nginx container หลังต่ออายุสำเร็จ)
     entrypoint: >
-      /bin/sh -c "trap exit TERM; while :; do certbot renew --quiet --renew-hook 'docker-compose restart nginx'; sleep 12h & wait \$!; done;""
+       /bin/sh -c "trap exit TERM; while :; do certbot renew --quiet --renew-hook 'docker-compose restart nginx'; sleep 12h & wait \$!; done;"
 
   nginx:
     image: nginx:lates
