@@ -36,7 +36,7 @@ deploy_production:
     - > 
       ssh $DEPLOY_USER@$DEPLOY_HOST "
       if [ ! -d ~/convert_file ]; then
-        git clone https://github.com/KxFxN/convert_file.git ~/root
+        git clone https://github.com/KxFxN/convert_file.git ~/convert_file
       else
         cd ~/convert_file && git pull; 
       fi &&
