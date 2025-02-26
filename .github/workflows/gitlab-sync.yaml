@@ -1,0 +1,29 @@
+name: Sync to GitLab
+
+# Trigger เมื่อมีการ push ไปที่ branch main (หรือ branch ที่กำหนด) และสามารถรัน manual ได้ด้วย workflow_dispatch
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      # ขั้นแรก: Checkout โค้ดจาก GitHub repository
+      - name: Checkout GitHub Repo
+        uses: actions/checkout@v3
+
+      # ขั้นตอนที่สอง: ตั้งค่า git และ push โค้ดไปยัง GitLab repository
+      - name: Push to GitLab
+        run: |
+          # กำหนดข้อมูลผู้ใช้สำหรับ git commit/push
+          git config --global user.email "sakarin14184@gmail.com"
+          git config --global user.name "GitHub Actions"
+          
+          # เพิ่ม remote ใหม่สำหรับ GitLab โดยใช้ Token ที่เก็บใน GitHub Secrets (GITLAB_TOKEN)
+          git remote add gitlab https://oauth2:${{ secrets.GITLAB_TOKEN }}@gitlab.com/KxFxN1/convert_file.git
+          
+          # ทำการ push โค้ดไปยัง branch main ของ GitLab (ใช้ -f เพื่อ force push ถ้าจำเป็น)
+          git push -f gitlab main
