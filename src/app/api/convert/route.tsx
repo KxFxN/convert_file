@@ -12,8 +12,6 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File;
     const selected = formData.get("selected") as string;
 
-    console.log(selected);
-
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
@@ -193,6 +191,7 @@ function convertToXML(data: DataType[], selected: string) {
     "Other Fluorocarbons",
     "Acid content(as HF)",
     "H2O",
+    "SF6",
   ];
   const globalValues = new Map<
     string, // Item Name เช่น "Purity"
@@ -291,11 +290,22 @@ function convertToXML(data: DataType[], selected: string) {
     }
   });
 
-  const sortedEntries = Array.from(inspectionItemsMap.entries()).sort(
-    ([keyA], [keyB]) => desiredOrder.indexOf(keyA) - desiredOrder.indexOf(keyB)
+  // สมมติว่าคุณมี inspectionItemsMap เป็น Map<UnitID, Map<ItemName, Data>>
+  const sortedInspectionItemsMap = new Map(
+    Array.from(inspectionItemsMap.entries()).map(([unitId, itemsMap]) => {
+      const sortedItems = new Map(
+        Array.from(itemsMap.entries()).sort(([itemA], [itemB]) => {
+          // ใช้ orderMap หรือ desiredOrder.indexOf ได้เช่นกัน
+          const indexA = desiredOrder.indexOf(itemA);
+          const indexB = desiredOrder.indexOf(itemB);
+          return indexA - indexB;
+        })
+      );
+      return [unitId, sortedItems];
+    })
   );
 
-  const sortedMap = new Map(sortedEntries);
+  const sortedMap = new Map(sortedInspectionItemsMap);
 
   // แปลง Map เป็น XML
   const builder = new Builder();
