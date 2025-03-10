@@ -119,6 +119,92 @@ function convertToXML(data: DataType[], selected: string) {
     O2: "OXYGEN",
   };
 
+  const defaultUnit: Record<string, string> = {
+    Purity: "%",
+    "Other Fluorocarbons": "ppmv",
+    CClF3: "ppmv",
+    "Acid content(as HF)": "ppmv",
+    H2O: "ppmv",
+    CF4: "ppmv",
+    CO: "ppmv",
+    CO2: "ppmv",
+    "THC(CH4)": "ppmv",
+    SF6: "ppmv",
+    N2: "ppmv",
+    O2: "ppmv",
+  };
+
+  const defaultspecSymbol: Record<string, string> = {
+    Purity: ">=",
+    "Other Fluorocarbons": "<=",
+    CClF3: "<=",
+    "Acid content(as HF)": "<=",
+    H2O: "<=",
+    CF4: "<=",
+    CO: "<=",
+    CO2: "<=",
+    "THC(CH4)": "<=",
+    SF6: "<=",
+    N2: "<=",
+    O2: "<=",
+  };
+
+  const defaultSpec: Record<string, Record<string, string>> = {
+    "14HE": {
+      Purity: "99.999",
+      "Other Fluorocarbons": "10",
+      "Acid content(as HF)": "0.1",
+      H2O: "1.0",
+      CF4: "2.0",
+      CO: "1.0",
+      CO2: "1.0",
+      "THC(CH4)": "0.5",
+      N2: "8.0",
+      O2: "2.0",
+    },
+    "32HE": {
+      Purity: "99.999",
+      "Other Fluorocarbons": "1.0",
+      CClF3: "1.0",
+      "Acid content(as HF)": "0.1",
+      H2O: "1.0",
+      CO: "0.5",
+      CO2: "0.5",
+      "THC(CH4)": "0.5",
+      SF6: "0.5",
+      N2: "5.0",
+      O2: "1.0",
+    },
+  };
+
+  const defaultDetect: Record<string, Record<string, string>> = {
+    "14HE": {
+      Purity: "99.999",
+      "Other Fluorocarbons": "1",
+      "Acid content(as HF)": "0.1",
+      H2O: "0.1",
+      CF4: "0.05",
+      CO: "0.05",
+      CO2: "0.05",
+      "THC(CH4)": "0.05",
+      N2: "0.1",
+      O2: "0.1",
+    },
+    "32HE": {
+      Purity: "99.999",
+      "Other Fluorocarbons": "0.1",
+      CClF3: "0.1",
+      "Acid content(as HF)": "0.1",
+      H2O: "0.1",
+      CO: "0.05",
+      CO2: "0.05",
+      "THC(CH4)": "0.05",
+      SF6: "0.1",
+      N2: "0.1",
+      O2: "0.1",
+    },
+  };
+
   // Function to reformat date with a simple replace
   const reformatDate = (date: string | undefined): string =>
     date ? date.replace(/(\d{4})(\d{2})(\d{2})/, "$1/$2/$3") : "";
@@ -212,29 +298,50 @@ function convertToXML(data: DataType[], selected: string) {
     }
 
     if (mandatoryItems.includes(itemName)) {
-      const specSymbol = String(row["41"] || "");
-      const specValue = String(row["39"] || row["38"] || "");
-      const spec = specSymbol + formatDecimal(specValue, itemName); // ใช้ฟังก์ชัน formatDecimal
+      // ตรวจสอบ specSymbol: ถ้า row["41"] เป็นค่าว่างหลัง trim ให้ใช้ defaultspecSymbol
+      const rawSpecSymbol = String(row["41"] || "").trim();
+      const specSymbol =
+        rawSpecSymbol === "" ? defaultspecSymbol[itemName] : rawSpecSymbol;
 
+      // ตรวจสอบ specValue: ใช้ row["39"] หรือ row["38"] แล้ว trim ถ้าว่างให้ใช้ defaultSpec
+      const rawSpecValue = (
+        String(row["39"] || "") || String(row["38"] || "")
+      ).trim();
+      const specValue =
+        rawSpecValue === "" ? defaultSpec[selected][itemName] : rawSpecValue;
+
+      const spec = specSymbol + formatDecimal(specValue, itemName);
+
+      // ตรวจสอบ detectionLimit: ถ้า row["42"] เป็นค่าว่างหลัง trim ให้ใช้ defaultDetect
       const rawDetectionLimit = String(row["42"] || "").trim();
-      const detectionLimit = rawDetectionLimit.replace(/<=|>=|>|</g, "");
+      const detectionLimitValue =
+        rawDetectionLimit === ""
+          ? defaultDetect[selected][itemName]
+          : rawDetectionLimit;
+      const detectionLimit = String(detectionLimitValue).replace(
+        /<=|>=|>|</g,
+        ""
+      );
 
-      const ins = String(row["40"] || "");
+      // InspectionValue
+      const ins = String(row["40"] || "").trim();
 
-      let unit = String(row["37"] || "");
+      // ตรวจสอบ unit: ถ้า row["37"] เป็นค่าว่างให้ใช้ defaultUnit
+      let unit = String(row["37"] || "").trim();
+      if (unit === "") {
+        unit = defaultUnit[itemName];
+      }
       if (unit.includes("vol%")) unit = unit.replace("vol", "");
       if (unit.includes("volppm")) unit = unit.replace("volppm", "ppmv");
       if (unit.includes("massppm")) unit = unit.replace("massppm", "ppmw");
 
-      // ถ้ามีค่าจริงของ InspectionValue ให้เก็บไว้
-      if (ins) {
-        globalValues.set(itemName, {
-          Unit: unit,
-          Specification: spec,
-          DetectionLimit: detectionLimit,
-          InspectionValue: ins,
-        });
-      }
+      // เก็บค่าใน globalValues (ไม่ขึ้นกับค่า InspectionValue ว่างหรือไม่)
+      globalValues.set(itemName, {
+        Unit: unit,
+        Specification: spec,
+        DetectionLimit: detectionLimit,
+        InspectionValue: ins,
+      });
     }
   });
 
@@ -267,16 +374,36 @@ function convertToXML(data: DataType[], selected: string) {
     const itemMap = inspectionItemsMap.get(unitId)!;
 
     if (desiredOrder.includes(itemName)) {
-      const specSymbol = String(row["41"] || "");
-      const specValue = String(row["39"] || row["38"] || "");
-      const spec = specSymbol + formatDecimal(specValue, itemName); // ใช้ฟังก์ชัน formatDecimal
+      // ตรวจสอบ specSymbol: ถ้า row["41"] เป็นค่าว่างหลัง trim ให้ใช้ defaultspecSymbol
+      const rawSpecSymbol = String(row["41"] || "").trim();
+      const specSymbol =
+        rawSpecSymbol === "" ? defaultspecSymbol[itemName] : rawSpecSymbol;
 
+      // ตรวจสอบ specValue: ใช้ row["39"] หรือ row["38"] แล้ว trim ถ้าว่างให้ใช้ defaultSpec
+      const rawSpecValue = (
+        String(row["39"] || "") || String(row["38"] || "")
+      ).trim();
+      const specValue =
+        rawSpecValue === "" ? defaultSpec[selected][itemName] : rawSpecValue;
+
+      const spec = specSymbol + formatDecimal(specValue, itemName);
+
+      // ตรวจสอบ detectionLimit: ถ้า row["42"] เป็นค่าว่างหลัง trim ให้ใช้ defaultDetect
       const rawDetectionLimit = String(row["42"] || "").trim();
-      const detectionLimit = rawDetectionLimit.replace(/<=|>=|>|</g, "");
+      const detectionLimitValue =
+        rawDetectionLimit === ""
+          ? defaultDetect[selected][itemName]
+          : rawDetectionLimit;
+      const detectionLimit = String(detectionLimitValue).replace(
+        /<=|>=|>|</g,
+        ""
+      );
 
-      const ins = String(row["40"] || "");
+      // InspectionValue
+      const ins = String(row["40"] || "").trim();
 
-      let unit = String(row["37"] || "");
+      // ตรวจสอบ unit: ถ้า row["37"] เป็นค่าว่างให้ใช้ defaultUnit
+      let unit = String(row["37"] || "").trim();
       if (unit.includes("vol%")) unit = unit.replace("vol", "");
       if (unit.includes("volppm")) unit = unit.replace("volppm", "ppmv");
       if (unit.includes("massppm")) unit = unit.replace("massppm", "ppmw");
