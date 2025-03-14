@@ -238,6 +238,7 @@ function convertToXML(data: DataType[], selected: string) {
           .replace(/^\w/, (c) => c.toUpperCase()),
     },
     { key: "23", name: "Number" },
+    {key: "24" , name: "LotQuantity"},
     { key: "28", name: "Productiondate", transform: reformatDate },
     { key: "30", name: "ExpiredDate", transform: reformatDate },
     { key: "26", name: "ExpectDate", transform: reformatDate },
@@ -442,7 +443,7 @@ function convertToXML(data: DataType[], selected: string) {
         BasicInfoField: [
           { $: { FieldName: "Purno", FieldValue: "" } },
           { $: { FieldName: "POLine", FieldValue: "" } },
-          { $: { FieldName: "Spec.no", FieldValue: "ZN5YQVW54AFP-18-18856" } },
+          { $: { FieldName: "Spec.no", FieldValue: selected === "14HE" ? "ZN5YQVW54AFP-18-18856" : selected === "32HE" && "ZN5YQVW54AFP-18-20951" } },
           { $: { FieldName: "Version", FieldValue: "2" } },
           { $: { FieldName: "DeliveryNote", FieldValue: "ICS-Doxxxx" } },
           {
@@ -486,7 +487,7 @@ function convertToXML(data: DataType[], selected: string) {
           { $: { FieldName: "BatchNumber", FieldValue: result.Number } },
           { $: { FieldName: "LotNumber", FieldValue: result.Number } },
           { $: { FieldName: "FAB", FieldValue: "F10N" } },
-          { $: { FieldName: "LotQuantity", FieldValue: "1" } },
+          { $: { FieldName: "LotQuantity", FieldValue: result.LotQuantity } },
           {
             $: {
               FieldName: "QuantityUn",
