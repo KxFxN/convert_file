@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
           if (["42"].includes(field as string)) {
             return value.replace(/<=|>=|>|</g, "").trim(); // เก็บเครื่องหมายไว้ แต่ตัดเว้นวรรค
           }
+
           return value.trim();
         }
         return value;
@@ -238,7 +239,7 @@ function convertToXML(data: DataType[], selected: string) {
           .replace(/^\w/, (c) => c.toUpperCase()),
     },
     { key: "23", name: "Number" },
-    {key: "24" , name: "LotQuantity"},
+    { key: "24", name: "LotQuantity" },
     { key: "28", name: "Productiondate", transform: reformatDate },
     { key: "30", name: "ExpiredDate", transform: reformatDate },
     { key: "26", name: "ExpectDate", transform: reformatDate },
@@ -435,6 +436,14 @@ function convertToXML(data: DataType[], selected: string) {
 
   const sortedMap = new Map(sortedInspectionItemsMap);
 
+  // หลังจากสร้าง result
+  const fab = "F10N";
+  const agency = "1017096";
+  const materialNumber =
+    selected === "14HE" ? "130-02004" : selected === "32HE" ? "130-05393" : "";
+  const expectDate = result.ExpectDate?.replace(/\//g, "") || "";
+  const coaNumber = `${fab}_${agency}_${materialNumber}_${expectDate}_${data[0]["COA_Number"]}`;
+
   // แปลง Map เป็น XML
   const builder = new Builder();
   const xmlObj = {
@@ -443,13 +452,21 @@ function convertToXML(data: DataType[], selected: string) {
         BasicInfoField: [
           { $: { FieldName: "Purno", FieldValue: "" } },
           { $: { FieldName: "POLine", FieldValue: "" } },
-          { $: { FieldName: "Spec.no", FieldValue: selected === "14HE" ? "ZN5YQVW54AFP-18-18856" : selected === "32HE" && "ZN5YQVW54AFP-18-20951" } },
+          {
+            $: {
+              FieldName: "Spec.no",
+              FieldValue:
+                selected === "14HE"
+                  ? "ZN5YQVW54AFP-18-18856"
+                  : selected === "32HE" && "ZN5YQVW54AFP-18-20951",
+            },
+          },
           { $: { FieldName: "Version", FieldValue: "2" } },
           { $: { FieldName: "DeliveryNote", FieldValue: "ICS-Doxxxx" } },
           {
             $: {
               FieldName: "COAnumber",
-              FieldValue: "F10N_1017096_130-02041_20240822_A_02",
+              FieldValue: coaNumber,
             },
           },
           { $: { FieldName: "Materialtype", FieldValue: "Gas" } },
