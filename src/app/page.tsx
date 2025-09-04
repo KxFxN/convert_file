@@ -36,8 +36,8 @@ export default function ExcelToXMLConverter() {
   const [xmlData, setXmlData] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [selected, setSelected] = useState("14HE");
-  const options = ["14HE", "32HE"];
+  const [selected, setSelected] = useState("14EH");
+  const options = ["14EH", "32EH"];
   const [isOpen, setIsOpen] = useState(false);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
