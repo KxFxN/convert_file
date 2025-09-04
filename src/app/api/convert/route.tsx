@@ -461,7 +461,7 @@ function convertToXML(data: DataType[], selected: string) {
                   : selected === "32HE" && "ZN5YQVW54AFP-18-20951",
             },
           },
-          { $: { FieldName: "Version", FieldValue: "2" } },
+          { $: { FieldName: "Version", FieldValue: "1" } },
           { $: { FieldName: "DeliveryNote", FieldValue: "ICS-Doxxxx" } },
           {
             $: {
@@ -539,7 +539,7 @@ function convertToXML(data: DataType[], selected: string) {
       Content: {
         UnitId: Array.from(sortedMap.entries()).map(([key, value]) => ({
           $: { Value: key }, // ใส่ Value สำหรับ UnitId
-          InspectionItems: Array.from(value.entries()).map(
+          InspectionItem: Array.from(value.entries()).map(
             ([itemName, details]) => ({
               $: {
                 ItemName: nameMapping[itemName as keyof typeof nameMapping],
