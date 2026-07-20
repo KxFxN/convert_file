@@ -13,7 +13,10 @@ variables:
 default:
   image: docker:25.0.5
   services:
-    - docker:dind
+    # Explicit MTU + DNS work around DNS resolution failures (EAI_AGAIN)
+    # seen inside docker:dind on some GitLab runner networks.
+    - name: docker:25.0.5-dind
+      command: ["--mtu=1400", "--dns=8.8.8.8", "--dns=1.1.1.1"]
   before_script:
     - echo "Docker login to GitLab Registry..."
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
@@ -22,7 +25,14 @@ build_project:
   stage: build
   script:
     - echo "Building the Production..."
-    - docker build -t $CI_REGISTRY_IMAGE/nextjs:$CI_COMMIT_SHORT_SHA -f Dockerfile .
+    - >
+      n=0;
+      until docker build -t $CI_REGISTRY_IMAGE/nextjs:$CI_COMMIT_SHORT_SHA -f Dockerfile . ; do
+        n=$((n+1));
+        if [ "$n" -ge 3 ]; then echo "docker build failed after $n attempts"; exit 1; fi;
+        echo "docker build failed (attempt $n), retrying...";
+        sleep 10;
+      done
     - docker push $CI_REGISTRY_IMAGE/nextjs:$CI_COMMIT_SHORT_SHA
 
 deploy_production:

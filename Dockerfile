@@ -5,13 +5,11 @@ FROM node:22-alpine as builder
 
 WORKDIR /app
 
-# Work around npm/cli#7657 ("Exit handler never called!"), which surfaces
-# under slow/flaky registry connections in CI: use a patched npm version,
-# skip the extra audit/fund network calls, and give fetches more room to retry.
-RUN npm install -g npm@11 \
-    && npm config set fetch-retries 5 \
-    && npm config set fetch-retry-mintimeout 20000 \
-    && npm config set fetch-timeout 300000
+# Give npm more room to survive flaky registry connections in CI, without
+# any extra network round-trip (no `npm install -g npm@...` step needed).
+ENV NPM_CONFIG_FETCH_RETRIES=5 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=20000 \
+    NPM_CONFIG_FETCH_TIMEOUT=300000
 
 COPY package.json package-lock.json* ./
 
