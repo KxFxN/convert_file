@@ -5,17 +5,11 @@ FROM node:22-alpine as builder
 
 WORKDIR /app
 
-# Fail fast instead of hanging for minutes on a dead connection while we
-# diagnose the CI network issue.
-ENV NPM_CONFIG_FETCH_RETRIES=2 \
-    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=5000 \
+# Give npm a bit of room to survive brief registry blips without hanging
+# for minutes on a dead connection.
+ENV NPM_CONFIG_FETCH_RETRIES=3 \
+    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000 \
     NPM_CONFIG_FETCH_TIMEOUT=60000
-
-# --- TEMPORARY DIAGNOSTIC: remove after we identify the CI network issue ---
-RUN echo "MTU: $(cat /sys/class/net/eth0/mtu 2>/dev/null || echo unknown)"; \
-    (time npm view react version) || echo "SMALL_OP_FAILED"; \
-    (time npm pack react --pack-destination /tmp) || echo "TARBALL_FAILED"
-# --- END DIAGNOSTIC ---
 
 COPY package.json package-lock.json* ./
 

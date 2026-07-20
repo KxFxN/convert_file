@@ -1,9 +1,7 @@
 services:
   convert_file:
     container_name: convert_file_container
-    build:
-      context: ./
-      dockerfile: Dockerfile
+    image: ${CONVERT_FILE_IMAGE:-registry.gitlab.com/kxfxn1/convert_file/nextjs:latest}
     ports:
       - "3000:3000"
     restart: unless-stopped
