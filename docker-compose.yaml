@@ -2,6 +2,12 @@ services:
   convert_file:
     container_name: convert_file_container
     image: ${CONVERT_FILE_IMAGE:-registry.gitlab.com/kxfxn1/convert_file/nextjs:latest}
+    env_file:
+      - .env
+    environment:
+      LOGIN_LOG_PATH: /app/data/login-log.csv
+    volumes:
+      - ./data:/app/data
     ports:
       - "3000:3000"
     restart: unless-stopped

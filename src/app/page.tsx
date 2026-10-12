@@ -6,7 +6,9 @@ import {
   FileSpreadsheet,
   FileOutput,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 async function convertExcelToXML(
   file: File,
@@ -73,6 +75,12 @@ export default function ExcelToXMLConverter() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <form method="post" action="/api/logout" className="absolute top-4 right-4">
+        <Button type="submit" variant="outline">
+          <LogOut />
+          Logout
+        </Button>
+      </form>
       <div className="bg-white rounded-lg shadow-lg w-full max-w-md overflow-hidden">
         <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
           <h1 className="text-xl font-semibold text-gray-800">

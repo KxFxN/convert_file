@@ -5,20 +5,21 @@ FROM node:22-alpine as builder
 
 WORKDIR /app
 
-# Give npm a bit of room to survive brief registry blips without hanging
+# Give yarn a bit of room to survive brief registry blips without hanging
 # for minutes on a dead connection.
-ENV NPM_CONFIG_FETCH_RETRIES=3 \
-    NPM_CONFIG_FETCH_RETRY_MINTIMEOUT=10000 \
-    NPM_CONFIG_FETCH_TIMEOUT=60000
+ENV YARN_HTTP_RETRY=3 \
+    YARN_HTTP_TIMEOUT=60000
 
-COPY package.json package-lock.json* ./
+RUN corepack enable
 
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+COPY package.json yarn.lock .yarnrc.yml ./
+
+RUN --mount=type=cache,target=/root/.yarn/berry/cache \
+    yarn install --immutable
 
 COPY . .
 
-RUN npm run build
+RUN yarn build
 
 #  Stage 2: Production Stage
 FROM node:22-alpine as runner
@@ -31,6 +32,8 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.mjs ./
 
+RUN mkdir -p /app/data
+
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node_modules/.bin/next", "start"]
