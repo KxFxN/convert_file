@@ -36,22 +36,44 @@ build_project:
     - docker push $CI_REGISTRY_IMAGE/nextjs:$CI_COMMIT_SHORT_SHA
 
 deploy_production:
-  stage: deploy 
+  stage: deploy
   script:
+    # AUTH_USERS / JWT_SECRET มาจาก GitLab CI/CD Variables (Settings > CI/CD > Variables)
+    # เช็คก่อนแตะ server เพื่อไม่ให้ compose down แล้วค่อยมาพังตอน up
+    - test -n "$AUTH_USERS" || { echo "GitLab variable AUTH_USERS is not set"; exit 1; }
+    - test -n "$JWT_SECRET" || { echo "GitLab variable JWT_SECRET is not set"; exit 1; }
+    - test "${#JWT_SECRET}" -ge 32 || { echo "JWT_SECRET must be at least 32 chars"; exit 1; }
+
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
     - chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -H $DEPLOY_HOST >> ~/.ssh/known_hosts
 
-    - > 
+    # เตรียมโค้ดบน server
+    - >
       ssh $DEPLOY_USER@$DEPLOY_HOST "
       if [ ! -d ~/convert_file ]; then
         git clone https://github.com/KxFxN/convert_file.git ~/convert_file
       else
-        cd ~/convert_file && git pull; 
-      fi &&
+        cd ~/convert_file && git pull;
+      fi
+      "
+
+    # สร้าง .env จาก variable แล้วส่งไป server (ไม่ผ่านบรรทัดคำสั่ง ไม่โผล่ใน log)
+    # ลอก single quote ครอบค่าออกก่อน กันกรณีเก็บ variable มาพร้อม quote
+    - umask 077
+    - AU="${AUTH_USERS#\'}"; AU="${AU%\'}"
+    - printf "AUTH_USERS='%s'\nJWT_SECRET=%s\n" "$AU" "$JWT_SECRET" > /tmp/convert_file.env
+    - scp /tmp/convert_file.env $DEPLOY_USER@$DEPLOY_HOST:~/convert_file/.env
+    - rm -f /tmp/convert_file.env
+    - ssh $DEPLOY_USER@$DEPLOY_HOST "chmod 600 ~/convert_file/.env && mkdir -p ~/convert_file/data"
+
+    # deploy
+    - >
+      ssh $DEPLOY_USER@$DEPLOY_HOST "
       cd ~/convert_file &&
+      test -s .env &&
       docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD &&
       docker pull $CI_REGISTRY_IMAGE/nextjs:$CI_COMMIT_SHORT_SHA &&
       docker compose down &&
