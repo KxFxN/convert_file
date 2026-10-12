@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+.yarn
+data
+.env
+.env*.local
+convert_file_code.zip
+*.log
