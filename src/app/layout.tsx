@@ -16,6 +16,9 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Convert file Daikin",
   description: "convert file Daikin",
+  authors: [{ name: "kaofang" }],
+  creator: "kaofang",
+  other: { "author-contact": "sakarin14184@gmail.com" },
 };
 
 export default function RootLayout({
@@ -24,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-author="kaofang" data-contact="sakarin14184@gmail.com">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

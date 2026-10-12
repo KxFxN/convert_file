@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
-export function PasswordInput(props: React.ComponentProps<"input">) {
+export function PasswordInput({ className, ...props }: React.ComponentProps<"input">) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -12,7 +13,7 @@ export function PasswordInput(props: React.ComponentProps<"input">) {
       <Input
         {...props}
         type={visible ? "text" : "password"}
-        className="pr-9"
+        className={cn("pr-10", className)}
       />
       <button
         type="button"
